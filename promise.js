@@ -7,45 +7,73 @@ const statuses = {
 
 class MyPromise {
   constructor(fn) {
+    if (typeof fn !== 'function') {
+      throw new TypeError('Argument in MyPromise constructor is not a function')
+    }
     this.#status = statuses.pending
-    return fn(this.#resolve.bind(this), this.#reject.bind(this))
+    try {
+      return fn(this.#resolve.bind(this), this.#reject.bind(this))
+    } catch(e) {
+      this.#reject.bind(this)(e)
+    }
   }
   
   #status
-  #thenFn = () => {}
-  #catchFn = () => {}
+  #deferred = []
+  #value
+  
+  #handle() {
+    if (this.#status === statuses.rejected && this.#deferred.length === 0) {
+      console.log("Unhandled promise rejection", this.#value);
+    }
+
+    this.#deferred.forEach((deferred) => {
+      setTimeout(() => {
+        const callback = this.#status === statuses.fulfilled ? deferred.onResolved : deferred.onRejected
+        if (callback === null) {
+          if (this.#status === statuses.fulfilled) {
+            this.#resolve.bind(deferred.promise)(this.#value)
+          } else {
+            this.#reject.bind(deferred.promise)(this.#value)
+          }
+          return
+        }
+
+        let result
+        try {
+          result = callback(this.#value)
+        } catch(e) {
+          this.#reject.bind(deferred.promise)(e)
+        }
+        this.#resolve.bind(deferred.promise)(result)
+      }, 0)
+    })
+  }
 
   #resolve(data){
     if (this.#status === statuses.pending) {
       this.#status = statuses.fulfilled
-      setTimeout(() => {
-        try {
-          this.#thenFn(data)
-        } catch(e) {
-          this.#status = statuses.rejected
-          this.#catchFn(e)
-        }
-      })
+      this.#value = data
+      this.#handle()
     }
   }
 
   #reject(err) {
     if (this.#status === statuses.pending) {
       this.#status = statuses.rejected
-      setTimeout(() => {
-        this.#catchFn(err)
-      })
+      this.#value = err
+      this.#handle()
     }
   }
 
   then(onResolved, onRejected) {
-    if (onResolved) {
-      this.#thenFn = onResolved
-    }
-    if (onRejected) {
-      this.#catchFn = onRejected
-    }
-    return this
+    const promise = new this.constructor(() => {})
+    this.#deferred.push({
+      onResolved: typeof onResolved === 'function' ? onResolved : null,
+      onRejected: typeof onRejected === 'function' ? onRejected : null,
+      promise
+    })
+    return promise
   }
 
   catch(onRejected) {
@@ -65,4 +93,10 @@ promiseTimeout
     // throw new Error('Mistake')
     console.log(result)}
   )
-  .catch((err) => console.log(err.message ?? err))
+  .then(() => {
+    console.log('Step 2')
+    throw new Error('Вызвано исключение')
+  })
+  .catch((err) => {
+    console.log(err.message ?? err)
+  })
