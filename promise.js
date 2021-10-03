@@ -6,23 +6,23 @@ const statuses = {
 }
 
 class MyPromise {
-  #status;
+  constructor(fn) {
+    this.#status = statuses.pending
+    return fn(this.#resolve.bind(this), this.#reject.bind(this))
+  }
+  
+  #status
   #thenFn = () => {}
   #catchFn = () => {}
 
-  constructor(fn) {
-    this.statuses = statuses.pending
-    return fn(this.#resolve.bind(this), this.#reject.bind(this))
-  }
-
   #resolve(data){
-    if (this.statuses === statuses.pending) {
-      this.statuses = statuses.fulfilled
+    if (this.#status === statuses.pending) {
+      this.#status = statuses.fulfilled
       setTimeout(() => {
         try {
           this.#thenFn(data)
         } catch(e) {
-          this.statuses = statuses.rejected
+          this.#status = statuses.rejected
           this.#catchFn(e)
         }
       })
@@ -30,8 +30,8 @@ class MyPromise {
   }
 
   #reject(err) {
-    if (this.statuses === statuses.pending) {
-      this.statuses = statuses.rejected
+    if (this.#status === statuses.pending) {
+      this.#status = statuses.rejected
       setTimeout(() => {
         this.#catchFn(err)
       })
@@ -49,9 +49,6 @@ class MyPromise {
   }
 
   catch(onRejected) {
-    if (onRejected) {
-      this.#catchFn = onRejected
-    }
     return this.then(null, onRejected)
   }
 }
@@ -59,12 +56,13 @@ class MyPromise {
 const promiseTimeout = new MyPromise((resolve, reject) => {
   setTimeout(() => {
     resolve('Done')
+    reject('reject')
   }, 1000)
 })
 
 promiseTimeout
   .then((result) => {
-    throw new Error('Mistake')
+    // throw new Error('Mistake')
     console.log(result)}
   )
   .catch((err) => console.log(err.message ?? err))
