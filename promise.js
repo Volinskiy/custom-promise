@@ -26,7 +26,6 @@ class MyPromise {
     if (this.#status === statuses.rejected && this.#deferred.length === 0) {
       console.log("Unhandled promise rejection", this.#value);
     }
-
     this.#deferred.forEach((deferred) => {
       setTimeout(() => {
         const callback = this.#status === statuses.fulfilled ? deferred.onResolved : deferred.onRejected
